@@ -1,15 +1,16 @@
 import React, { useRef } from 'react'
 import { formatDate } from '../lib/format'
 
-export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, onImportDocx, onExport }) {
+export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, onImportDoc, onExport }) {
   const fileRef = useRef(null)
 
   function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const name = (file.name || '').toLowerCase()
-    if (name.endsWith('.docx') && onImportDocx) {
-      onImportDocx(file)
+    const isDoc = /\.(docx|pdf|xlsx|xls)$/.test(name)
+    if (isDoc && onImportDoc) {
+      onImportDoc(file)
       e.target.value = ''
       return
     }
@@ -39,7 +40,7 @@ export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, 
               <button
                 className="btn-ghost"
                 onClick={() => fileRef.current.click()}
-                title="Import bills from a Word (.docx) quotation or an exported data file"
+                title="Import bills from a Word (.docx), PDF (.pdf) or Excel (.xlsx) quotation, or an exported data file"
               >
                 ⬆ Import bills
               </button>
@@ -53,7 +54,7 @@ export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, 
                 ⬇ Export data file
               </button>
             )}
-            <input type="file" accept=".json,application/json,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" ref={fileRef} hidden onChange={handleFile} />
+            <input type="file" accept=".json,application/json,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" ref={fileRef} hidden onChange={handleFile} />
           </div>
         )}
 

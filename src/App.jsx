@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import Editor from './components/Editor'
 import DocumentPreview from './components/DocumentPreview'
 import SavedModal from './components/SavedModal'
@@ -6,7 +6,7 @@ import BusinessProfileModal from './components/BusinessProfileModal'
 import DefaultsModal from './components/DefaultsModal'
 import CloudSync from './components/CloudSync'
 import WelcomeModal from './components/WelcomeModal'
-import { hasValidToken as gdriveHasToken, pushBackup as gdrivePush, pullBackup as gdrivePull, signIn as gdriveSignIn, signOut as gdriveSignOut, isConfigured as gdriveConfigured } from './lib/gdrive'
+import { hasValidToken as gdriveHasToken, hasStoredToken as gdriveHasStoredToken, pushBackup as gdrivePush, pullBackup as gdrivePull, signIn as gdriveSignIn, signOut as gdriveSignOut, isConfigured as gdriveConfigured } from './lib/gdrive'
 import { newDoc, DEFAULT_FIELDS, BUILTIN_DEFAULTS } from './lib/defaults'
 import { toLocalISO } from './lib/format'
 import {
@@ -18,6 +18,8 @@ import {
 import { exportPDF } from './lib/pdf'
 import { exportExcel } from './lib/excel'
 import { parseDocxToDocument } from './lib/docximport'
+import { parsePdfToDocument } from './lib/pdfimport'
+import { parseExcelToDocument } from './lib/xlsximport'
 
 // Human-friendly download name, e.g. "Client Name_Quotation_2026-07-01".
 // The date keeps multiple bills for the same client from overwriting each
@@ -45,11 +47,17 @@ export default function App() {
   const [mobileView, setMobileView] = useState('edit') // edit | preview
   const [showProfile, setShowProfile] = useState(false)
   const [showDefaults, setShowDefaults] = useState(false)
-  // First-run onboarding step: 'welcome' (Google sign-in gate) -> 'profile'
-  // (manual business setup) -> 'done'. Skip welcome if Drive isn't configured.
+  // First-run / sign-in gate: 'welcome' (Google sign-in) -> 'profile' (manual
+  // business setup) -> 'done'. When Drive is configured, signing in is
+  // MANDATORY: the app stays gated behind 'welcome' until there's a valid
+  // Google token, and returns there whenever the user signs out or the token
+  // expires. When Drive isn't configured, fall back to manual onboarding.
   const [onboard, setOnboard] = useState(() => {
-    if (isOnboarded()) return 'done'
-    return gdriveConfigured() ? 'welcome' : 'profile'
+    if (gdriveConfigured()) {
+      if (!gdriveHasToken()) return 'welcome'
+      return isOnboarded() ? 'done' : 'profile'
+    }
+    return isOnboarded() ? 'done' : 'profile'
   })
   const [onboarding, setOnboarding] = useState(false)
 
@@ -67,6 +75,41 @@ export default function App() {
       toastTimer.current = null
     }, 2200)
   }
+
+  // Sign-in is mandatory (when Drive is configured). On load, if a returning
+  // user's token has expired, try a SILENT re-auth so a refresh doesn't force
+  // a full sign-in dialog. If that fails, the Welcome gate remains.
+  useEffect(() => {
+    if (!gdriveConfigured() || gdriveHasToken() || !gdriveHasStoredToken()) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        await gdriveSignIn({ prompt: '' })
+        if (cancelled) return
+        const remote = await gdrivePull({ interactive: false })
+        if (remote) { importBackup(remote, { merge: true }); refreshFromStorage() }
+        const biz = getBusiness()
+        if (biz && biz.name) { setOnboarded(true); setOnboard('done') }
+        else setOnboard('profile')
+      } catch { /* stay on the Welcome gate — user must sign in */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Force the sign-in gate back up if the token expires while the app is open
+  // (checked when the tab regains focus, since tokens live ~1 hour).
+  useEffect(() => {
+    if (!gdriveConfigured()) return
+    function check() {
+      if (!gdriveHasToken()) setOnboard((s) => (s === 'done' ? 'welcome' : s))
+    }
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [])
 
   // Persist the business profile only when the user actually edits it (via the
   // inline "Your Business" fields or the Business Profile modal) — NOT whenever
@@ -247,12 +290,18 @@ export default function App() {
     }
   }
 
-  // Import a bill from a Word (.docx) quotation like the Krishna Furniture
-  // format. Extracts the client details + line-item table, stamps it with your
-  // current business profile, saves it as a new bill, and opens it for review.
-  async function handleImportDocx(file) {
+  // Import a bill from a Word (.docx), PDF (.pdf) or Excel (.xlsx/.xls) BoQ /
+  // quotation. Extracts the client details + line-item table, stamps it with
+  // your current business profile, saves it as a new bill, and opens it for
+  // review. The correct parser is chosen from the file extension.
+  async function handleImportDoc(file) {
+    const name = (file?.name || '').toLowerCase()
+    let parse, kind
+    if (name.endsWith('.pdf')) { parse = parsePdfToDocument; kind = 'PDF' }
+    else if (name.endsWith('.xlsx') || name.endsWith('.xls')) { parse = parseExcelToDocument; kind = 'Excel' }
+    else { parse = parseDocxToDocument; kind = 'Word' }
     try {
-      const parsed = await parseDocxToDocument(file)
+      const parsed = await parse(file)
       const biz = getBusiness()
       const stamped = { ...parsed, ...(biz ? { business: { ...parsed.business, ...biz } } : {}) }
       saveDocument(stamped)
@@ -260,11 +309,11 @@ export default function App() {
       setSavedDocs(listDocuments())
       setClients(listClients())
       setShowSaved(false)
-      flash('Imported bill from Word document')
+      flash(`Imported bill from ${kind} document`)
       syncUp()
     } catch (e) {
       console.error(e)
-      flash(e.message || 'Could not read this Word document')
+      flash(e.message || `Could not read this ${kind} document`)
     }
   }
 
@@ -395,7 +444,7 @@ export default function App() {
           onLoad={handleLoad}
           onDelete={handleDelete}
           onImport={handleImportBills}
-          onImportDocx={handleImportDocx}
+          onImportDoc={handleImportDoc}
           onExport={handleExportData}
         />
       )}
@@ -404,6 +453,7 @@ export default function App() {
         <WelcomeModal
           onSignIn={handleWelcomeSignIn}
           onManual={() => setOnboard('profile')}
+          mandatory={gdriveConfigured()}
           busy={onboarding}
         />
       )}

@@ -54,6 +54,13 @@ export function hasValidToken() {
   return Boolean(readToken())
 }
 
+// True when a token blob exists in storage even if it has since expired. Used
+// to decide whether to attempt a silent re-auth on load (returning users)
+// versus showing a fresh sign-in prompt (brand-new users).
+export function hasStoredToken() {
+  try { return Boolean(localStorage.getItem(TOKEN_KEY)) } catch { return false }
+}
+
 let tokenClient = null
 async function getTokenClient() {
   await loadGIS()

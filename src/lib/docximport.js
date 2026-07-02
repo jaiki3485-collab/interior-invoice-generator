@@ -7,9 +7,7 @@
 // is preserved by the caller (this module never sets a business identity).
 
 import JSZip from 'jszip'
-import { newDoc, emptyItem } from './defaults'
-import { getDefaults } from './storage'
-import { uid } from './format'
+import { buildDocFromRows } from './tableimport'
 
 function unescapeXml(s) {
   return s
@@ -47,17 +45,6 @@ function firstTableRows(xml) {
     const cells = r.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || []
     return cells.map(textOf)
   })
-}
-
-function cleanQty(v) {
-  const t = (v || '').trim()
-  if (!t || t === '=' || t === '-') return ''
-  return t
-}
-
-function cleanAmount(v) {
-  const t = (v || '').replace(/[^0-9.]/g, '')
-  return t
 }
 
 // Turn the full document XML into a doc object for the app.
@@ -99,53 +86,9 @@ function buildDocFromXml(xml) {
     break
   }
 
-  // Table -> sections + items.
+  // Table -> rows -> shared builder (handles header detection, sections, items).
   const rows = firstTableRows(xml)
-  // Locate header row and column indexes.
-  let headerIdx = rows.findIndex((r) => r.some((c) => /description/i.test(c)) && r.some((c) => /qty|amount/i.test(c)))
-  let descCol = 1, qtyCol = 2, amtCol = 3
-  if (headerIdx >= 0) {
-    const h = rows[headerIdx].map((c) => c.toLowerCase())
-    const find = (re, dflt) => { const i = h.findIndex((c) => re.test(c)); return i >= 0 ? i : dflt }
-    descCol = find(/description|particular/, 1)
-    qtyCol = find(/qty|quantity/, 2)
-    amtCol = find(/amount|cost|total/, 3)
-  }
-
-  const sections = []
-  let current = null
-  const pushSection = (name) => { current = { id: uid(), name, items: [] }; sections.push(current) }
-  const dataRows = rows.slice(headerIdx >= 0 ? headerIdx + 1 : 0)
-  for (const r of dataRows) {
-    const desc = (r[descCol] || '').trim()
-    const qty = cleanQty(r[qtyCol])
-    const amt = cleanAmount(r[amtCol])
-    if (!desc && !qty && !amt) continue
-    const isHeading = desc && !qty && !amt
-    if (isHeading) {
-      pushSection(desc)
-    } else if (desc || qty || amt) {
-      if (!current) pushSection('Items')
-      current.items.push({ ...emptyItem(), particulars: desc, quantity: qty, cost: amt })
-    }
-  }
-
-  // Ensure at least one section/item so the editor renders.
-  if (!sections.length) pushSection('Items')
-  for (const s of sections) if (!s.items.length) s.items.push(emptyItem())
-
-  const doc = newDoc(type, getDefaults())
-  doc.id = uid()
-  if (date) doc.date = date
-  doc.showRate = false // source has no rate column
-  doc.sections = sections
-  doc.client = {
-    ...doc.client,
-    name: clientName || 'Imported Client',
-    address: site || '',
-  }
-  doc.savedAt = new Date().toISOString()
-  return doc
+  return buildDocFromRows(rows, { type, date, site, clientName })
 }
 
 // Public API: parse a .docx File/Blob/ArrayBuffer into an app document.
