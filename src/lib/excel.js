@@ -266,11 +266,28 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
     dressRow(r, undefined)
     ws.getRow(r).height = 22; r += 1
 
+    // GST rows (optional): tax on total, then total including GST
+    if (doc.showGST) {
+      merge(r, 1, r, NC - 1)
+      set(r, 1, `GST @ ${totals.gstRate}%`, { bold: true, fill: ACCENT_LT, align: 'left', color: DARK })
+      for (let c = 1; c < NC; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT_LT } }
+      set(r, NC, totals.gst, { bold: true, fill: ACCENT_LT, align: 'right', color: DARK, numFmt: money })
+      dressRow(r, undefined)
+      ws.getRow(r).height = 20; r += 1
+
+      merge(r, 1, r, NC - 1)
+      set(r, 1, 'TOTAL AMOUNT (INCL. GST)', { bold: true, size: 12, color: WHITE, fill: DARK, align: 'left' })
+      for (let c = 1; c < NC; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } }
+      set(r, NC, totals.totalWithGst, { bold: true, size: 12, color: WHITE, fill: DARK, align: 'right', numFmt: money })
+      dressRow(r, undefined)
+      ws.getRow(r).height = 22; r += 1
+    }
+
     // amount in words (PDF style: accent label + dark bold value)
     set(r, 1, 'AMOUNT IN WORDS', { bold: true, size: 9, align: 'left', color: ACCENT, fill: ACCENT_LT })
     merge(r, 1, r, 2)
     for (let c = 1; c <= 2; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT_LT } }
-    set(r, 3, numberToWords(totals.grandTotal, doc.currency), { bold: true, align: 'left', color: DARK })
+    set(r, 3, numberToWords(doc.showGST ? totals.totalWithGst : totals.grandTotal, doc.currency), { bold: true, align: 'left', color: DARK })
     merge(r, 3, r, NC)
     dressRow(r, undefined)
     ws.getRow(r).height = 20; r += 2

@@ -403,6 +403,17 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
           <input type="checkbox" checked={doc.showTotals !== false} onChange={(e) => setField('showTotals', e.target.checked)} />
           Show totals (section totals, total site cost & amount in words)
         </label>
+        <div className="grid-2">
+          <label className="checkbox" style={{ alignSelf: 'end' }}>
+            <input type="checkbox" checked={doc.showGST === true} onChange={(e) => setField('showGST', e.target.checked)} disabled={doc.showTotals === false} />
+            Add GST rows (GST on total & total incl. GST)
+          </label>
+          {doc.showGST && (
+            <Field label="GST rate (%)">
+              <input type="number" min="0" step="any" className="no-spin" onWheel={(e) => e.target.blur()} value={doc.gstRate ?? 18} onChange={(e) => setField('gstRate', e.target.value === '' ? '' : Number(e.target.value))} />
+            </Field>
+          )}
+        </div>
 
         {copyableBills.length > 0 && (
           <Field label="Copy rooms & items from a saved bill">

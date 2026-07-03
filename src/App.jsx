@@ -211,6 +211,8 @@ export default function App() {
         theme: defaults.theme,
         showRate: defaults.showRate !== false,
         showTotals: defaults.showTotals !== false,
+        showGST: defaults.showGST === true,
+        gstRate: Number(defaults.gstRate) || 18,
         showSignature: defaults.showSignature !== false,
         notes: defaults.notes,
         terms: d.type === 'invoice' ? defaults.invoiceTerms : defaults.quotationTerms,

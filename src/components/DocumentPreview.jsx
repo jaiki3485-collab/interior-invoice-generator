@@ -129,6 +129,18 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
               <td className="c-amt">{money(totals.grandTotal, cur)}</td>
             </tr>
           )}
+          {showTotals && doc.showGST && (
+            <>
+              <tr className="gst-row">
+                <td colSpan={colCount - 1}>GST @ {totals.gstRate}%</td>
+                <td className="c-amt">{money(totals.gst, cur)}</td>
+              </tr>
+              <tr className="grand-row">
+                <td colSpan={colCount - 1}>TOTAL AMOUNT (INCL. GST)</td>
+                <td className="c-amt">{money(totals.totalWithGst, cur)}</td>
+              </tr>
+            </>
+          )}
         </tbody>
       </table>
 
@@ -138,7 +150,7 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
           <div className="doc-words-bank">
             <div className="doc-words">
               <span className="doc-party-label">Amount in Words</span>
-              <div>{numberToWords(totals.grandTotal, cur)}</div>
+              <div>{numberToWords(doc.showGST ? totals.totalWithGst : totals.grandTotal, cur)}</div>
             </div>
           </div>
         </div>

@@ -22,7 +22,9 @@ export function transportCost(doc) {
   return round2(Number(doc.transport) || 0)
 }
 
-// Grand total across all sections (+ optional transportation).
+// Grand total across all sections (+ optional transportation), plus optional
+// GST. When GST is enabled, `gst` is the tax on the grand total and
+// `totalWithGst` is grandTotal + gst. The GST rate defaults to 18%.
 export function computeTotals(doc) {
   const subtotal = round2(
     docGroups(doc).reduce(
@@ -32,7 +34,10 @@ export function computeTotals(doc) {
   )
   const transport = transportCost(doc)
   const grandTotal = round2(subtotal + transport)
-  return { subtotal, transport, grandTotal }
+  const gstRate = doc.showGST ? (Number(doc.gstRate) || 18) : 0
+  const gst = doc.showGST ? round2(grandTotal * gstRate / 100) : 0
+  const totalWithGst = round2(grandTotal + gst)
+  return { subtotal, transport, grandTotal, gstRate, gst, totalWithGst }
 }
 
 // The category groups that should appear in the document, in order.

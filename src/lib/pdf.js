@@ -276,6 +276,16 @@ export async function exportPDF(doc, filename = 'document.pdf') {
       { content: 'TOTAL SITE COST', colSpan: NC - 1, styles: { fillColor: DARK, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 11 } },
       { content: money(totals.grandTotal, cur), styles: { fillColor: DARK, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'right', fontSize: 11 } },
     ])
+    if (doc.showGST) {
+      body.push([
+        { content: `GST @ ${totals.gstRate}%`, colSpan: NC - 1, styles: { fillColor: SEC, textColor: DARK, fontStyle: 'bold', halign: 'left' } },
+        { content: money(totals.gst, cur), styles: { fillColor: SEC, textColor: DARK, fontStyle: 'bold', halign: 'right' } },
+      ])
+      body.push([
+        { content: 'TOTAL AMOUNT (INCL. GST)', colSpan: NC - 1, styles: { fillColor: DARK, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 11 } },
+        { content: money(totals.totalWithGst, cur), styles: { fillColor: DARK, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'right', fontSize: 11 } },
+      ])
+    }
   }
   const pct = showRate
     ? { sr: 0.06, particulars: 0.24, quantity: 0.13, rate: 0.13, cost: 0.15, scope: 0.29 }
@@ -313,7 +323,7 @@ export async function exportPDF(doc, filename = 'document.pdf') {
     pdf.text('AMOUNT IN WORDS', M, y)
     y += 13
     pdf.setFont('Inter', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(...DARK)
-    pdf.splitTextToSize(numberToWords(totals.grandTotal, cur), W).forEach((ln) => { pdf.text(ln, M, y); y += 14 })
+    pdf.splitTextToSize(numberToWords(doc.showGST ? totals.totalWithGst : totals.grandTotal, cur), W).forEach((ln) => { pdf.text(ln, M, y); y += 14 })
     y += 8
   }
 

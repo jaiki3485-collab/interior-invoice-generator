@@ -127,6 +127,8 @@ export const BUILTIN_DEFAULTS = {
   showRate: true,
   showTotals: true,
   showSignature: true,
+  showGST: false,
+  gstRate: 18,
   validityDays: 15,
   notes: 'Thank you for your business!',
   quotationTerms: '1. Estimate is not inclusive of GST Bill, 18% will be additional on GST Billing.\n2. 50% advance to confirm the order.\n3. Quantity is approximate and can vary based on site measurements.',
@@ -142,6 +144,8 @@ export const DEFAULT_FIELDS = [
   { key: 'validityDays', label: 'Quotation validity (days)', type: 'number' },
   { key: 'showRate', label: 'Show Rate column by default', type: 'bool' },
   { key: 'showTotals', label: 'Show totals by default', type: 'bool' },
+  { key: 'showGST', label: 'Show GST rows by default', type: 'bool' },
+  { key: 'gstRate', label: 'GST rate (%)', type: 'number' },
   { key: 'showSignature', label: 'Show signature block by default', type: 'bool' },
   { key: 'notes', label: 'Default Notes', type: 'textarea' },
   { key: 'quotationTerms', label: 'Default Terms — Quotation', type: 'textarea' },
@@ -182,6 +186,8 @@ export function newDoc(type = 'quotation', overrides = {}) {
     terms: isInvoice ? d.invoiceTerms : d.quotationTerms,
     showSignature: d.showSignature !== false,
     showTotals: d.showTotals !== false,
+    showGST: d.showGST === true,
+    gstRate: Number(d.gstRate) || 18,
   }
 }
 
