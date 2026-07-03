@@ -440,3 +440,9 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 700; padding: 4px 10px; border-radius: 999px; font-size: 12px;
   white-space: nowrap;
 }
+
+/* Remove the up/down spin buttons on selected number inputs (Rate, Cost) so
+   values can't be nudged ±1 by accident — free numeric entry still works. */
+.no-spin { -moz-appearance: textfield; appearance: textfield; }
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

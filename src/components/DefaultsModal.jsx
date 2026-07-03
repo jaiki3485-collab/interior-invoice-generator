@@ -41,7 +41,7 @@ export default function DefaultsModal({ fields, builtins, values, onSave, onClos
         return (
           <label className="field" key={f.key}>
             <span>{f.label}</span>
-            <input type="number" min="0" step="1" value={val ?? ''} onChange={(e) => set(f.key, e.target.value === '' ? '' : Number(e.target.value))} />
+            <input type="number" min="0" step="1" onWheel={(e) => e.target.blur()} value={val ?? ''} onChange={(e) => set(f.key, e.target.value === '' ? '' : Number(e.target.value))} />
           </label>
         )
       case 'currency':

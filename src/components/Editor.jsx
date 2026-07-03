@@ -217,16 +217,18 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
                 </Field>
                 <div className="grid-4">
                   <Field label="Quantity">
-                    <input type="number" min="0" step="any" value={item.quantity} onChange={(e) => setItem(key, section.id, item.id, 'quantity', e.target.value)} />
+                    <input type="number" min="0" step="any" onWheel={(e) => e.target.blur()} value={item.quantity} onChange={(e) => setItem(key, section.id, item.id, 'quantity', e.target.value)} />
                   </Field>
                   {doc.showRate && (
                     <Field label="Rate (optional)">
-                      <input type="number" min="0" step="any" value={item.rate} onChange={(e) => setItem(key, section.id, item.id, 'rate', e.target.value)} />
+                      <input className="no-spin" type="number" min="0" step="any" onWheel={(e) => e.target.blur()} value={item.rate} onChange={(e) => setItem(key, section.id, item.id, 'rate', e.target.value)} />
                     </Field>
                   )}
                   <Field label={hasRate ? 'Cost (auto)' : 'Cost'}>
                     <input
+                      className="no-spin"
                       type="number" min="0" step="any"
+                      onWheel={(e) => e.target.blur()}
                       value={hasRate ? itemCost(item) : item.cost}
                       readOnly={hasRate}
                       title={hasRate ? 'Quantity × Rate' : 'Enter cost manually'}
@@ -473,6 +475,7 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
           <Field label="Transportation Amount">
             <input
               type="number" min="0" step="any"
+              onWheel={(e) => e.target.blur()}
               value={doc.transport}
               onChange={(e) => setField('transport', e.target.value)}
               placeholder="e.g. 2500"
