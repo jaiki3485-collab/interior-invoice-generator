@@ -70,13 +70,30 @@ export const SCOPE_PRESETS = [
   'As per design',
 ]
 
+// Common units of measure for interior line items.
+export const UNIT_PRESETS = [
+  'nos.',
+  'Sq.ft',
+  'Rft',
+  'Lump sum',
+  'Set',
+  'Pair',
+  'Sq.mtr',
+  'Kg',
+]
+
 // A single line item under a room/section.
-// Columns: Particulars | Quantity | Rate (optional) | Cost | Scope
-export function emptyItem() {
+// Columns: Particulars | HSN/SAC (optional) | Quantity | Unit (optional) | Rate (optional) | Cost | Scope (optional)
+// opts.hsn overrides the built-in HSN default. Quantity is left as entered;
+// the on-bill display can be masked separately without touching this value.
+export function emptyItem(opts = {}) {
+  const hsn = (opts.hsn != null && opts.hsn !== '') ? opts.hsn : '9403'
   return {
     id: uid(),
     particulars: '',
+    hsn,
     quantity: '',
+    unit: opts.unit || 'nos.',
     rate: '',
     cost: '',
     scope: '',
@@ -84,11 +101,11 @@ export function emptyItem() {
 }
 
 // A room/section that groups items together.
-export function emptySection(name = '') {
+export function emptySection(name = '', opts = {}) {
   return {
     id: uid(),
     name,
-    items: [emptyItem()],
+    items: [emptyItem(opts)],
   }
 }
 
@@ -125,10 +142,16 @@ export const BUILTIN_DEFAULTS = {
   category: 'FURNITURE',
   otherCategory: 'OTHER SERVICES',
   showRate: true,
+  showHSN: false,
+  showUnit: false,
+  showScope: true,
   showTotals: true,
   showSignature: true,
   showGST: false,
   gstRate: 18,
+  defaultHsn: '9403',
+  maskQuantity: false,
+  maskQuantityValue: '1',
   validityDays: 15,
   notes: 'Thank you for your business!',
   quotationTerms: '1. Estimate is not inclusive of GST Bill, 18% will be additional on GST Billing.\n2. 50% advance to confirm the order.\n3. Quantity is approximate and can vary based on site measurements.',
@@ -143,9 +166,15 @@ export const DEFAULT_FIELDS = [
   { key: 'theme', label: 'Theme', type: 'theme' },
   { key: 'validityDays', label: 'Quotation validity (days)', type: 'number' },
   { key: 'showRate', label: 'Show Rate column by default', type: 'bool' },
+  { key: 'showHSN', label: 'Show HSN/SAC column by default', type: 'bool' },
+  { key: 'showUnit', label: 'Show Unit column by default', type: 'bool' },
+  { key: 'showScope', label: 'Show Scope column by default', type: 'bool' },
   { key: 'showTotals', label: 'Show totals by default', type: 'bool' },
   { key: 'showGST', label: 'Show GST rows by default', type: 'bool' },
   { key: 'gstRate', label: 'GST rate (%)', type: 'number' },
+  { key: 'defaultHsn', label: 'Default HSN/SAC value', type: 'text', placeholder: '9403' },
+  { key: 'maskQuantity', label: 'Mask quantity on the bill by default', type: 'bool' },
+  { key: 'maskQuantityValue', label: 'Masked quantity value', type: 'text', placeholder: '1' },
   { key: 'showSignature', label: 'Show signature block by default', type: 'bool' },
   { key: 'notes', label: 'Default Notes', type: 'textarea' },
   { key: 'quotationTerms', label: 'Default Terms — Quotation', type: 'textarea' },
@@ -155,6 +184,9 @@ export const DEFAULT_FIELDS = [
 export function newDoc(type = 'quotation', overrides = {}) {
   const isInvoice = type === 'invoice'
   const d = { ...BUILTIN_DEFAULTS, ...overrides }
+  const withUnit = d.showUnit === true
+  const defaultHsn = (d.defaultHsn != null && d.defaultHsn !== '') ? d.defaultHsn : '9403'
+  const itemOpts = { hsn: defaultHsn }
   return {
     id: uid(),
     type, // 'invoice' | 'quotation'
@@ -169,17 +201,23 @@ export function newDoc(type = 'quotation', overrides = {}) {
     client: defaultClient(),
     sections: [
       {
-        ...emptySection('Kitchen'),
+        ...emptySection('Kitchen', itemOpts),
       },
     ],
     showOther: false,
     otherCategory: d.otherCategory,
     otherSections: [
       {
-        ...emptySection('Painting'),
+        ...emptySection('Painting', itemOpts),
       },
     ],
     showRate: d.showRate !== false,
+    showHSN: d.showHSN === true,
+    showUnit: withUnit,
+    showScope: d.showScope !== false,
+    defaultHsn,
+    maskQuantity: d.maskQuantity === true,
+    maskQuantityValue: (d.maskQuantityValue != null && d.maskQuantityValue !== '') ? d.maskQuantityValue : '1',
     showTransport: false,
     transport: '',
     notes: d.notes,

@@ -35,7 +35,12 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
   const isInvoice = doc.type === 'invoice'
   const title = isInvoice ? 'INVOICE' : 'QUOTATION'
   const showRate = doc.showRate !== false
+  const showHSN = doc.showHSN === true
+  const showUnit = doc.showUnit === true
+  const showScope = doc.showScope !== false
   const showTotals = doc.showTotals !== false
+  const maskQty = doc.maskQuantity === true
+  const maskQtyVal = doc.maskQuantityValue ?? '1'
   const money = '#,##0.00'
 
   // Theme-driven accent colors (mirror the PDF, which uses THEMES[doc.theme]).
@@ -50,17 +55,21 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   })
 
-  // Column layout:  Sr | Particulars | Quantity | [Rate] | Cost | Scope
-  const cols = ['sr', 'particulars', 'quantity']
+  // Column layout:  Sr | Particulars | [HSN/SAC] | Quantity | [Unit] | [Rate] | Cost | [Scope]
+  const cols = ['sr', 'particulars']
+  if (showHSN) cols.push('hsn')
+  cols.push('quantity')
+  if (showUnit) cols.push('unit')
   if (showRate) cols.push('rate')
-  cols.push('cost', 'scope')
+  cols.push('cost')
+  if (showScope) cols.push('scope')
   const NC = cols.length
   const C = {}
   cols.forEach((k, i) => { C[k] = i + 1 })
   const LAST = NC
 
   // widths
-  const widthMap = { sr: 6, particulars: 34, quantity: 12, rate: 11, cost: 14, scope: 40 }
+  const widthMap = { sr: 6, particulars: 34, hsn: 12, quantity: 12, unit: 10, rate: 11, cost: 14, scope: 40 }
   cols.forEach((k, i) => { ws.getColumn(i + 1).width = widthMap[k] })
 
   const merge = (r1, c1, r2, c2) =>
@@ -195,7 +204,7 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
   dressRow(r, DARK)
   ws.getRow(r).height = 24; r += 1
 
-  const HEADERS = { sr: 'Sr.', particulars: 'Particulars', quantity: 'Quantity', rate: 'Rate', cost: 'Cost', scope: 'Scope' }
+  const HEADERS = { sr: 'Sr.', particulars: 'Particulars', hsn: 'HSN/SAC', quantity: 'Quantity', unit: 'Unit', rate: 'Rate', cost: 'Cost', scope: 'Scope' }
 
   const banner = (text) => {
     merge(r, 1, r, NC)
@@ -223,10 +232,10 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
         merge(r, C.particulars, r, C.cost - 1)
         for (let c = C.particulars; c < C.cost; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT_LT } }
         set(r, C.cost, sectionTotal(section), { bold: true, fill: ACCENT_LT, align: 'right', numFmt: money })
-        set(r, C.scope, '', { fill: ACCENT_LT })
+        if (showScope) set(r, C.scope, '', { fill: ACCENT_LT })
       } else {
-        merge(r, C.particulars, r, C.scope)
-        for (let c = C.particulars; c <= C.scope; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT_LT } }
+        merge(r, C.particulars, r, LAST)
+        for (let c = C.particulars; c <= LAST; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT_LT } }
       }
       dressRow(r, undefined)
       ws.getRow(r).height = 18; r += 1
@@ -236,12 +245,15 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
         const hasRate = Number(item.rate) > 0
         set(r, C.sr, srn, { align: 'center', color: GREY })
         set(r, C.particulars, item.particulars || '', { align: 'left', wrap: true })
-        const q = item.quantity
-        const qNum = q !== '' && q !== null && !isNaN(Number(q)) ? Number(q) : q
-        set(r, C.quantity, qNum === '' ? '' : qNum, { align: typeof qNum === 'number' ? 'right' : 'center', numFmt: typeof qNum === 'number' ? '#,##0.00' : undefined })
+        if (showHSN) set(r, C.hsn, item.hsn || '', { align: 'center' })
+        const q = maskQty ? maskQtyVal : item.quantity
+        const qNum = q !== '' && q !== null && q !== undefined && !isNaN(Number(q)) ? Number(q) : q
+        set(r, C.quantity, (q === '' || q == null) ? '' : qNum, { align: typeof qNum === 'number' ? 'right' : 'center', numFmt: typeof qNum === 'number' ? '#,##0.00' : undefined })
+        const hasQ = q !== '' && q !== null && q !== undefined
+        if (showUnit) set(r, C.unit, hasQ ? (item.unit || 'nos.') : '', { align: 'center' })
         if (showRate) set(r, C.rate, hasRate ? Number(item.rate) : '', { align: 'right', numFmt: hasRate ? money : undefined })
         set(r, C.cost, itemCost(item), { align: 'right', numFmt: money })
-        set(r, C.scope, item.scope || '', { align: 'left', wrap: true })
+        if (showScope) set(r, C.scope, item.scope || '', { align: 'left', wrap: true })
         r += 1
       })
     })

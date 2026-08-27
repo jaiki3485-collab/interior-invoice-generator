@@ -8,7 +8,7 @@ import CloudSync from './components/CloudSync'
 import WelcomeModal from './components/WelcomeModal'
 import { hasValidToken as gdriveHasToken, hasStoredToken as gdriveHasStoredToken, pushBackup as gdrivePush, pullBackup as gdrivePull, signIn as gdriveSignIn, signOut as gdriveSignOut, isConfigured as gdriveConfigured } from './lib/gdrive'
 import { newDoc, DEFAULT_FIELDS, BUILTIN_DEFAULTS } from './lib/defaults'
-import { toLocalISO } from './lib/format'
+import { toLocalISO, uid } from './lib/format'
 import {
   listDocuments, saveDocument, deleteDocument,
   getBusiness, saveBusiness, listClients, saveClient,
@@ -186,6 +186,25 @@ export default function App() {
     syncUp()
   }
 
+  // Duplicate a saved bill into a brand-new, editable bill. Fresh ids on the
+  // document, sections and items keep it fully independent of the original.
+  function handleDuplicate(d) {
+    const clone = JSON.parse(JSON.stringify(d))
+    clone.id = uid()
+    delete clone.savedAt
+    const reid = (secs) => (Array.isArray(secs)
+      ? secs.map((s) => ({ ...s, id: uid(), items: (s.items || []).map((it) => ({ ...it, id: uid() })) }))
+      : secs)
+    clone.sections = reid(clone.sections)
+    clone.otherSections = reid(clone.otherSections)
+    saveDocument(clone)
+    setDoc(clone)
+    setSavedDocs(listDocuments())
+    setShowSaved(false)
+    flash('Created a copy of ' + (d.client?.name || d.type))
+    syncUp()
+  }
+
   // Save the one-time business account; reuse it on the current document too.
   function handleProfileSave(business) {
     saveBusiness(business)
@@ -210,9 +229,15 @@ export default function App() {
         currency: defaults.currency,
         theme: defaults.theme,
         showRate: defaults.showRate !== false,
+        showHSN: defaults.showHSN === true,
+        showUnit: defaults.showUnit === true,
+        showScope: defaults.showScope !== false,
         showTotals: defaults.showTotals !== false,
         showGST: defaults.showGST === true,
         gstRate: Number(defaults.gstRate) || 18,
+        defaultHsn: defaults.defaultHsn ?? '9403',
+        maskQuantity: defaults.maskQuantity === true,
+        maskQuantityValue: defaults.maskQuantityValue ?? '1',
         showSignature: defaults.showSignature !== false,
         notes: defaults.notes,
         terms: d.type === 'invoice' ? defaults.invoiceTerms : defaults.quotationTerms,
@@ -445,6 +470,7 @@ export default function App() {
           onClose={() => setShowSaved(false)}
           onLoad={handleLoad}
           onDelete={handleDelete}
+          onDuplicate={handleDuplicate}
           onImport={handleImportBills}
           onImportDoc={handleImportDoc}
           onExport={handleExportData}
@@ -464,6 +490,7 @@ export default function App() {
         <BusinessProfileModal
           business={getBusiness() || doc.business}
           firstRun={onboard === 'profile'}
+          savedDocs={savedDocs}
           onSave={handleProfileSave}
           onClose={() => setShowProfile(false)}
         />
@@ -474,6 +501,7 @@ export default function App() {
           fields={DEFAULT_FIELDS}
           builtins={BUILTIN_DEFAULTS}
           values={getDefaults()}
+          savedDocs={savedDocs}
           onSave={handleDefaultsSave}
           onClose={() => setShowDefaults(false)}
         />

@@ -10,12 +10,21 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
   const isInvoice = doc.type === 'invoice'
   const title = isInvoice ? 'INVOICE' : 'QUOTATION'
   const showRate = doc.showRate !== false
+  const showHSN = doc.showHSN === true
+  const showUnit = doc.showUnit === true
+  const showScope = doc.showScope !== false
   const showTotals = doc.showTotals !== false
   const groups = docGroups(doc)
 
-  // Columns: Sr. | Particulars | Quantity | [Rate] | Cost | Scope
-  const colCount = showRate ? 6 : 5
-  const beforeCost = showRate ? 4 : 3 // sr + particulars + quantity + (rate)
+  // On-bill quantity can be masked (shown as a fixed value) without altering
+  // the stored quantity that cost is calculated from.
+  const maskQty = doc.maskQuantity === true
+  const maskQtyVal = doc.maskQuantityValue ?? '1'
+  const qtyText = (item) => (maskQty ? maskQtyVal : (item.quantity !== '' && item.quantity != null ? item.quantity : ''))
+
+  // Columns: Sr. | Particulars | [HSN/SAC] | Quantity | [Unit] | [Rate] | Cost | [Scope]
+  const colCount = 4 + (showRate ? 1 : 0) + (showHSN ? 1 : 0) + (showUnit ? 1 : 0) + (showScope ? 1 : 0)
+  const beforeCost = 3 + (showRate ? 1 : 0) + (showHSN ? 1 : 0) + (showUnit ? 1 : 0) // cols before Cost
 
   // Business header lines (only the ones that have a value)
   const bizContact = [doc.business.phone, doc.business.email].filter(Boolean).join('  ·  ')
@@ -76,10 +85,12 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
           <tr>
             <th className="c-sr">Sr.</th>
             <th className="c-desc">Particulars</th>
+            {showHSN && <th className="c-num">HSN/SAC</th>}
             <th className="c-num">Quantity</th>
+            {showUnit && <th className="c-num c-unit">Unit</th>}
             {showRate && <th className="c-num">Rate</th>}
             <th className="c-num c-amt">Cost</th>
-            <th className="c-scope">Scope</th>
+            {showScope && <th className="c-scope">Scope</th>}
           </tr>
         </thead>
         <tbody>
@@ -105,10 +116,12 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
                         <tr key={item.id}>
                           <td className="c-sr">{sr}</td>
                           <td className="c-desc">{item.particulars}</td>
-                          <td className="c-num">{item.quantity !== '' ? item.quantity : ''}</td>
+                          {showHSN && <td className="c-num">{item.hsn}</td>}
+                          <td className="c-num">{qtyText(item)}</td>
+                          {showUnit && <td className="c-num c-unit">{qtyText(item) !== '' ? (item.unit || 'nos.') : ''}</td>}
                           {showRate && <td className="c-num">{hasRate ? money(Number(item.rate), cur) : ''}</td>}
                           <td className="c-num c-amt">{money(itemCost(item), cur)}</td>
-                          <td className="c-scope">{item.scope}</td>
+                          {showScope && <td className="c-scope">{item.scope}</td>}
                         </tr>
                       )
                     })}

@@ -27,12 +27,36 @@ function LogoUpload({ value, onChange }) {
 }
 
 // One-time business account setup (also reusable for editing later).
-export default function BusinessProfileModal({ business, onSave, onClose, firstRun }) {
+export default function BusinessProfileModal({ business, onSave, onClose, firstRun, savedDocs = [] }) {
   const [form, setForm] = useState(() => ({
     name: '', logo: '', address: '', phone: '', email: '', website: '', gstin: '',
     ...business,
   }))
+  const [copiedFrom, setCopiedFrom] = useState('')
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+
+  const billLabel = (b) => {
+    const who = b.client?.name?.trim() || 'Untitled'
+    const type = b.type === 'invoice' ? 'Invoice' : 'Quotation'
+    return `${who} \u2014 ${type}${b.date ? ' \u00b7 ' + b.date : ''}`
+  }
+
+  // Saved bills that carry a usable business snapshot to copy from.
+  const billsWithBiz = savedDocs.filter((b) => b?.business && (b.business.name || '').trim())
+
+  // Prefill the profile form from a saved bill's embedded business details.
+  // Only non-empty values are copied so blanks don't wipe existing fields.
+  function applyFromBill(bill) {
+    const b = bill?.business
+    if (!b) return
+    setForm((f) => {
+      const next = { ...f }
+      const copy = (k) => { if (b[k] !== undefined && b[k] !== null && b[k] !== '') next[k] = b[k] }
+      ;['name', 'logo', 'address', 'phone', 'email', 'website', 'gstin'].forEach(copy)
+      return next
+    })
+    setCopiedFrom(billLabel(bill))
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -52,6 +76,25 @@ export default function BusinessProfileModal({ business, onSave, onClose, firstR
             Enter your business details once. Your logo, address and other info will be
             reused on every quotation and invoice you create.
           </p>
+        )}
+
+        {billsWithBiz.length > 0 && (
+          <label className="field">
+            <span>Copy business details from a saved bill</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const b = billsWithBiz.find((d) => d.id === e.target.value)
+                if (b) applyFromBill(b)
+              }}
+            >
+              <option value="">— Select a bill to copy from —</option>
+              {billsWithBiz.map((b) => (
+                <option key={b.id} value={b.id}>{billLabel(b)}</option>
+              ))}
+            </select>
+            {copiedFrom && <span className="doc-muted">Filled from: {copiedFrom} · review &amp; Save</span>}
+          </label>
         )}
 
         <LogoUpload value={form.logo} onChange={(v) => set('logo', v)} />

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react'
 import { formatDate } from '../lib/format'
 
-export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, onImportDoc, onExport }) {
+export default function SavedModal({ docs, onClose, onLoad, onDelete, onDuplicate, onImport, onImportDoc, onExport }) {
   const fileRef = useRef(null)
 
   function handleFile(e) {
@@ -71,6 +71,9 @@ export default function SavedModal({ docs, onClose, onLoad, onDelete, onImport, 
                 </div>
                 <div className="saved-actions">
                   <button className="btn-ghost" onClick={() => onLoad(d)}>Open</button>
+                  {onDuplicate && (
+                    <button className="btn-ghost" onClick={() => onDuplicate(d)} title="Create an editable copy of this bill">Duplicate</button>
+                  )}
                   <button className="btn-ghost danger" onClick={() => onDelete(d.id)}>Delete</button>
                 </div>
               </li>

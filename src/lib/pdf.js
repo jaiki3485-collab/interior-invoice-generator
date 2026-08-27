@@ -57,7 +57,13 @@ export async function exportPDF(doc, filename = 'document.pdf') {
   const isInvoice = doc.type === 'invoice'
   const title = isInvoice ? 'INVOICE' : 'QUOTATION'
   const showRate = doc.showRate !== false
+  const showHSN = doc.showHSN === true
+  const showUnit = doc.showUnit === true
+  const showScope = doc.showScope !== false
   const showTotals = doc.showTotals !== false
+  const maskQty = doc.maskQuantity === true
+  const maskQtyVal = doc.maskQuantityValue ?? '1'
+  const qtyText = (item) => (maskQty ? String(maskQtyVal) : (item.quantity !== '' && item.quantity != null ? String(item.quantity) : ''))
   const totals = computeTotals(doc)
   const groups = docGroups(doc)
 
@@ -221,13 +227,18 @@ export async function exportPDF(doc, filename = 'document.pdf') {
   y += 26
 
   // ---------- ITEMS TABLE ----------
-  const cols = ['sr', 'particulars', 'quantity']
+  const cols = ['sr', 'particulars']
+  if (showHSN) cols.push('hsn')
+  cols.push('quantity')
+  if (showUnit) cols.push('unit')
   if (showRate) cols.push('rate')
-  cols.push('cost', 'scope')
+  cols.push('cost')
+  if (showScope) cols.push('scope')
   const NC = cols.length
-  const beforeCost = showRate ? 4 : 3 // sr + particulars + quantity + (rate)
+  const beforeCost = cols.indexOf('cost') // cols before Cost
 
-  const head = [['Sr.', 'Particulars', 'Quantity', ...(showRate ? ['Rate'] : []), 'Cost', 'Scope']]
+  const HEAD_LABEL = { sr: 'Sr.', particulars: 'Particulars', hsn: 'HSN/SAC', quantity: 'Quantity', unit: 'Unit', rate: 'Rate', cost: 'Cost', scope: 'Scope' }
+  const head = [cols.map((k) => HEAD_LABEL[k])]
 
   const SEC = ACCENT_LT
   const body = []
@@ -237,12 +248,13 @@ export async function exportPDF(doc, filename = 'document.pdf') {
     }
     group.sections.forEach((section) => {
       if (showTotals) {
-        body.push([
+        const secRow = [
           { content: '', styles: { fillColor: SEC } },
           { content: section.name || '', colSpan: beforeCost - 1, styles: { fillColor: SEC, fontStyle: 'bold', textColor: DARK } },
           { content: money(sectionTotal(section), cur), styles: { fillColor: SEC, fontStyle: 'bold', halign: 'right' } },
-          { content: '', styles: { fillColor: SEC } },
-        ])
+        ]
+        if (showScope) secRow.push({ content: '', styles: { fillColor: SEC } })
+        body.push(secRow)
       } else {
         body.push([
           { content: '', styles: { fillColor: SEC } },
@@ -256,11 +268,13 @@ export async function exportPDF(doc, filename = 'document.pdf') {
         const row = [
           { content: String(sr), styles: { halign: 'center', textColor: GREY } },
           { content: item.particulars || '' },
-          { content: item.quantity !== '' && item.quantity != null ? String(item.quantity) : '', styles: { halign: 'right' } },
         ]
+        if (showHSN) row.push({ content: item.hsn || '', styles: { halign: 'center' } })
+        row.push({ content: qtyText(item), styles: { halign: 'right' } })
+        if (showUnit) row.push({ content: qtyText(item) !== '' ? (item.unit || 'nos.') : '', styles: { halign: 'center' } })
         if (showRate) row.push({ content: hasRate ? money(Number(item.rate), cur) : '', styles: { halign: 'right' } })
         row.push({ content: money(itemCost(item), cur), styles: { halign: 'right' } })
-        row.push({ content: item.scope || '' })
+        if (showScope) row.push({ content: item.scope || '' })
         body.push(row)
       })
     })
@@ -287,11 +301,10 @@ export async function exportPDF(doc, filename = 'document.pdf') {
       ])
     }
   }
-  const pct = showRate
-    ? { sr: 0.06, particulars: 0.24, quantity: 0.13, rate: 0.13, cost: 0.15, scope: 0.29 }
-    : { sr: 0.07, particulars: 0.30, quantity: 0.16, cost: 0.18, scope: 0.29 }
+  const WEIGHT = { sr: 0.5, particulars: 2.4, hsn: 1.0, quantity: 1.2, unit: 0.8, rate: 1.2, cost: 1.3, scope: 2.4 }
+  const totalWeight = cols.reduce((s, k) => s + WEIGHT[k], 0)
   const columnStyles = {}
-  cols.forEach((k, i) => { columnStyles[i] = { cellWidth: W * pct[k] } })
+  cols.forEach((k, i) => { columnStyles[i] = { cellWidth: W * WEIGHT[k] / totalWeight } })
 
   autoTable(pdf, {
     head,

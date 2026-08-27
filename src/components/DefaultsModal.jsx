@@ -5,11 +5,52 @@ import { THEMES } from '../lib/defaults'
 // Edit the default values applied to every new bill (Quotation / Invoice) so
 // the user can change starting values (category headings, terms, notes, etc.)
 // from the app instead of editing code.
-export default function DefaultsModal({ fields, builtins, values, onSave, onClose }) {
+export default function DefaultsModal({ fields, builtins, values, savedDocs = [], onSave, onClose }) {
   const [form, setForm] = useState(() => ({ ...builtins, ...values }))
   const [applyToCurrent, setApplyToCurrent] = useState(true)
+  const [copiedFrom, setCopiedFrom] = useState('')
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+
+  const billLabel = (b) => {
+    const who = b.client?.name?.trim() || 'Untitled'
+    const type = b.type === 'invoice' ? 'Invoice' : 'Quotation'
+    return `${who} — ${type}${b.date ? ' · ' + b.date : ''}`
+  }
+
+  // Prefill the defaults form from a previously saved bill so the user can
+  // reuse its headings, terms, currency, theme and column toggles instead of
+  // retyping them. Only the fields the defaults form actually manages are
+  // copied; the bill's terms map onto the matching (invoice/quotation) slot.
+  function applyFromBill(bill) {
+    if (!bill) return
+    setForm((f) => {
+      const next = { ...f }
+      const copyStr = (k, v) => { if (v !== undefined && v !== null && v !== '') next[k] = v }
+      copyStr('category', bill.category)
+      copyStr('otherCategory', bill.otherCategory)
+      copyStr('currency', bill.currency)
+      copyStr('theme', bill.theme)
+      copyStr('notes', bill.notes)
+      copyStr('defaultHsn', bill.defaultHsn)
+      copyStr('maskQuantityValue', bill.maskQuantityValue)
+      if (typeof bill.maskQuantity === 'boolean') next.maskQuantity = bill.maskQuantity
+      if (typeof bill.showRate === 'boolean') next.showRate = bill.showRate
+      if (typeof bill.showHSN === 'boolean') next.showHSN = bill.showHSN
+      if (typeof bill.showUnit === 'boolean') next.showUnit = bill.showUnit
+      if (typeof bill.showScope === 'boolean') next.showScope = bill.showScope
+      if (typeof bill.showGST === 'boolean') next.showGST = bill.showGST
+      if (typeof bill.showSignature === 'boolean') next.showSignature = bill.showSignature
+      if (typeof bill.showTotals === 'boolean') next.showTotals = bill.showTotals
+      if (bill.gstRate !== undefined && bill.gstRate !== null && bill.gstRate !== '') next.gstRate = bill.gstRate
+      if (bill.terms) {
+        if (bill.type === 'invoice') next.invoiceTerms = bill.terms
+        else next.quotationTerms = bill.terms
+      }
+      return next
+    })
+    setCopiedFrom(billLabel(bill))
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -91,6 +132,25 @@ export default function DefaultsModal({ fields, builtins, values, onSave, onClos
           These starting values are applied to every new Invoice / Quotation you create.
           Changing them here does not affect bills you've already saved.
         </p>
+
+        {savedDocs.length > 0 && (
+          <label className="field">
+            <span>Copy defaults from a saved bill</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const b = savedDocs.find((d) => d.id === e.target.value)
+                if (b) applyFromBill(b)
+              }}
+            >
+              <option value="">— Select a bill to copy from —</option>
+              {savedDocs.map((b) => (
+                <option key={b.id} value={b.id}>{billLabel(b)}</option>
+              ))}
+            </select>
+            {copiedFrom && <span className="doc-muted">Filled from: {copiedFrom} · review &amp; Save Defaults</span>}
+          </label>
+        )}
 
         {otherFields.map(renderField)}
 

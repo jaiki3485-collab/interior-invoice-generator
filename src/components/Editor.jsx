@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react'
-import { ROOM_PRESETS, PARTICULARS_PRESETS, SCOPE_PRESETS, emptyItem, emptySection, THEMES } from '../lib/defaults'
+import { ROOM_PRESETS, PARTICULARS_PRESETS, SCOPE_PRESETS, UNIT_PRESETS, emptyItem, emptySection, THEMES } from '../lib/defaults'
 import { fmt, uid } from '../lib/format'
 import { itemCost, sectionTotal } from '../lib/calc'
 
@@ -98,7 +98,7 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
     update({
       ...doc,
       [key]: doc[key].map((sec) =>
-        sec.id === sectionId ? { ...sec, items: [...sec.items, emptyItem()] } : sec,
+        sec.id === sectionId ? { ...sec, items: [...sec.items, emptyItem({ hsn: doc.defaultHsn })] } : sec,
       ),
     })
 
@@ -126,7 +126,7 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
     })
 
   const addSection = (key, name = '') =>
-    update({ ...doc, [key]: [...doc[key], emptySection(name)] })
+    update({ ...doc, [key]: [...doc[key], emptySection(name, { hsn: doc.defaultHsn })] })
 
   const removeSection = (key, sectionId) =>
     update({ ...doc, [key]: doc[key].filter((s) => s.id !== sectionId) })
@@ -150,7 +150,9 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
       items: (sec.items && sec.items.length ? sec.items : [emptyItem()]).map((it) => ({
         id: uid(),
         particulars: it.particulars || '',
+        hsn: it.hsn ?? '9403',
         quantity: it.quantity ?? '',
+        unit: it.unit ?? 'nos.',
         rate: it.rate ?? '',
         cost: it.cost ?? '',
         scope: it.scope || '',
@@ -176,6 +178,16 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
       if (src.otherCategory) patch.otherCategory = src.otherCategory
     }
     update(patch)
+  }
+
+  // Set the HSN value on every item across all rooms (used by the HSN
+  // "apply to all" button).
+  const applyToAllItems = (field, value) => {
+    const fix = (secs = []) => secs.map((s) => ({
+      ...s,
+      items: (s.items || []).map((it) => ({ ...it, [field]: value })),
+    }))
+    update({ ...doc, sections: fix(doc.sections), otherSections: fix(doc.otherSections) })
   }
 
   const renderSections = (key) => (
@@ -215,10 +227,20 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
                 <Field label="Particulars">
                   <input value={item.particulars} onChange={(e) => setItem(key, section.id, item.id, 'particulars', e.target.value)} placeholder="e.g. Tandem Trolley" list="particulars-presets" />
                 </Field>
+                {doc.showHSN && (
+                  <Field label="HSN/SAC">
+                    <input value={item.hsn ?? ''} onChange={(e) => setItem(key, section.id, item.id, 'hsn', e.target.value)} placeholder="9403" />
+                  </Field>
+                )}
                 <div className="grid-4">
                   <Field label="Quantity">
                     <input type="number" min="0" step="any" onWheel={(e) => e.target.blur()} value={item.quantity} onChange={(e) => setItem(key, section.id, item.id, 'quantity', e.target.value)} />
                   </Field>
+                  {doc.showUnit && (
+                    <Field label="Unit">
+                      <input value={item.unit ?? 'nos.'} onChange={(e) => setItem(key, section.id, item.id, 'unit', e.target.value)} placeholder="nos." list="unit-presets" />
+                    </Field>
+                  )}
                   {doc.showRate && (
                     <Field label="Rate (optional)">
                       <input className="no-spin" type="number" min="0" step="any" onWheel={(e) => e.target.blur()} value={item.rate} onChange={(e) => setItem(key, section.id, item.id, 'rate', e.target.value)} />
@@ -236,9 +258,11 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
                     />
                   </Field>
                 </div>
-                <Field label="Scope">
-                  <input value={item.scope} onChange={(e) => setItem(key, section.id, item.id, 'scope', e.target.value)} placeholder="e.g. Onyx fittings" list="scope-presets" />
-                </Field>
+                {doc.showScope !== false && (
+                  <Field label="Scope">
+                    <input value={item.scope} onChange={(e) => setItem(key, section.id, item.id, 'scope', e.target.value)} placeholder="e.g. Onyx fittings" list="scope-presets" />
+                  </Field>
+                )}
               </div>
             )
           })}
@@ -399,6 +423,39 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
             Show Rate column
           </label>
         </div>
+        <div className="grid-2">
+          <label className="checkbox">
+            <input type="checkbox" checked={doc.showHSN === true} onChange={(e) => setField('showHSN', e.target.checked)} />
+            Show HSN/SAC column
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={doc.showScope !== false} onChange={(e) => setField('showScope', e.target.checked)} />
+            Show Scope column
+          </label>
+        </div>
+        <label className="checkbox">
+          <input type="checkbox" checked={doc.showUnit === true} onChange={(e) => setField('showUnit', e.target.checked)} />
+          Show Unit column (defaults to “nos.”)
+        </label>
+        {doc.showHSN && (
+          <div className="grid-2">
+            <Field label="Default HSN/SAC">
+              <input value={doc.defaultHsn ?? '9403'} onChange={(e) => setField('defaultHsn', e.target.value)} placeholder="9403" />
+            </Field>
+            <button type="button" className="btn" style={{ alignSelf: 'end' }} onClick={() => applyToAllItems('hsn', doc.defaultHsn ?? '9403')}>
+              Apply HSN to all items
+            </button>
+          </div>
+        )}
+        <label className="checkbox">
+          <input type="checkbox" checked={doc.maskQuantity === true} onChange={(e) => setField('maskQuantity', e.target.checked)} />
+          Mask quantity on the bill (display a fixed value; actual quantity &amp; cost stay unchanged)
+        </label>
+        {doc.maskQuantity && (
+          <Field label="Masked quantity value">
+            <input value={doc.maskQuantityValue ?? '1'} onChange={(e) => setField('maskQuantityValue', e.target.value)} placeholder="1" />
+          </Field>
+        )}
         <label className="checkbox">
           <input type="checkbox" checked={doc.showTotals !== false} onChange={(e) => setField('showTotals', e.target.checked)} />
           Show totals (section totals, total site cost & amount in words)
@@ -439,6 +496,9 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
         </datalist>
         <datalist id="scope-presets">
           {scopeOptions.map((s) => <option key={s} value={s} />)}
+        </datalist>
+        <datalist id="unit-presets">
+          {UNIT_PRESETS.map((u) => <option key={u} value={u} />)}
         </datalist>
       </section>
 

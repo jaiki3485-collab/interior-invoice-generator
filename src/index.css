@@ -300,6 +300,7 @@ button { font-family: inherit; cursor: pointer; }
 .doc-items tbody td { padding: 7px 8px; vertical-align: top; }
 .c-num { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; width: 13%; }
 .c-amt { width: 15%; }
+.c-unit { text-align: center; width: 8%; }
 .c-sr { width: 6%; text-align: center; color: #6b7280; }
 .c-desc { width: 24%; }
 .c-scope { color: #475569; width: 29%; }
