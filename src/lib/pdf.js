@@ -81,6 +81,7 @@ export async function exportPDF(doc, filename = 'document.pdf') {
   const clientContact = [doc.client.phone, doc.client.email].filter(Boolean).join('  ·  ')
   if (clientContact) clientRows.push(['Contact', clientContact])
   if (doc.client.gstin) clientRows.push(['GSTIN', doc.client.gstin])
+  if (isInvoice && doc.showInvoiceNo && doc.invoiceNo) clientRows.push(['Invoice No.', doc.invoiceNo])
   clientRows.push(['Date', formatDate(doc.date)])
   if (isInvoice && doc.showPO && doc.poNumber) clientRows.push(['PO No.', doc.poNumber])
 

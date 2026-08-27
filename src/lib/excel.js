@@ -122,6 +122,7 @@ export async function exportExcel(doc, filename = 'document.xlsx') {
   if (doc.client.address) details.push(['Address', doc.client.address])
   if (clientContact) details.push(['Contact', clientContact])
   if (doc.client.gstin) details.push(['GSTIN', doc.client.gstin])
+  if (isInvoice && doc.showInvoiceNo && doc.invoiceNo) details.push(['Invoice No.', doc.invoiceNo])
   details.push(['Date', formatDate(doc.date)])
   if (isInvoice && doc.showPO && doc.poNumber) details.push(['PO No.', doc.poNumber])
 

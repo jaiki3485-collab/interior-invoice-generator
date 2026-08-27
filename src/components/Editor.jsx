@@ -333,6 +333,19 @@ export default function Editor({ doc, update, clients, onPickClient, savedDocs =
             <label className="checkbox">
               <input
                 type="checkbox"
+                checked={!!doc.showInvoiceNo}
+                onChange={(e) => setField('showInvoiceNo', e.target.checked)}
+              />
+              Add Invoice Number
+            </label>
+            {doc.showInvoiceNo && (
+              <Field label="Invoice Number">
+                <input value={doc.invoiceNo} onChange={(e) => setField('invoiceNo', e.target.value)} placeholder="e.g. INV-2026-001" />
+              </Field>
+            )}
+            <label className="checkbox">
+              <input
+                type="checkbox"
                 checked={!!doc.showPO}
                 onChange={(e) => setField('showPO', e.target.checked)}
               />

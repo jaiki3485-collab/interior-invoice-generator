@@ -195,6 +195,8 @@ export function newDoc(type = 'quotation', overrides = {}) {
     category: d.category,
     date: todayISO(),
     validUntil: isInvoice ? '' : addDays(todayISO(), Number(d.validityDays) || 15),
+    invoiceNo: '',
+    showInvoiceNo: false,
     poNumber: '',
     showPO: false,
     business: defaultBusiness(),

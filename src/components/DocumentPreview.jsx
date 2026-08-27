@@ -36,6 +36,7 @@ const DocumentPreview = forwardRef(function DocumentPreview({ doc }, ref) {
   if (doc.client.address) clientRows.push(['Address', doc.client.address])
   if (clientContact) clientRows.push(['Contact', clientContact])
   if (doc.client.gstin) clientRows.push(['GSTIN', doc.client.gstin])
+  if (isInvoice && doc.showInvoiceNo && doc.invoiceNo) clientRows.push(['Invoice No.', doc.invoiceNo])
   clientRows.push(['Date', formatDate(doc.date)])
   if (isInvoice && doc.showPO && doc.poNumber) clientRows.push(['PO No.', doc.poNumber])
 
